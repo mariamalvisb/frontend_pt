@@ -21,9 +21,9 @@ export function Input({
 }: Props) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label className="label">{label}</label>
       <input
-        className="mt-1 w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+        className="input"
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}

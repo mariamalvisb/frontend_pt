@@ -7,6 +7,7 @@ type Props = {
   type?: "button" | "submit";
   disabled?: boolean;
   onClick?: () => void;
+  variant?: "primary" | "secondary";
 };
 
 export function Button({
@@ -14,14 +15,12 @@ export function Button({
   type = "button",
   disabled,
   onClick,
+  variant = "primary",
 }: Props) {
+  const cls = variant === "primary" ? "btn btn-primary" : "btn btn-secondary";
+
   return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className="w-full rounded-md bg-black px-4 py-2 text-white disabled:opacity-60"
-    >
+    <button type={type} disabled={disabled} onClick={onClick} className={cls}>
       {children}
     </button>
   );

@@ -1,3 +1,5 @@
+import PatientPrescriptions from "../../../components/ui/prescriptions/PatientPrescriptions";
+
 export default function PatientPrescriptionsPage() {
-  return <div>Patient / Prescriptions (placeholder)</div>;
+  return <PatientPrescriptions />;
 }

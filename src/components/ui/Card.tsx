@@ -10,11 +10,11 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow">
+    <div className="card">
       <div>
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h1 className="text-2xl font-semibold">{title}</h1>
         {description ? (
-          <p className="mt-1 text-sm text-gray-600">{description}</p>
+          <p className="mt-1 text-sm text-muted">{description}</p>
         ) : null}
       </div>
 
