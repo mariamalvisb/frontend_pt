@@ -7,6 +7,19 @@ import type {
   PrescriptionItem,
 } from "@/types";
 
+type ApiEnvelope<T> = {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
+  data: T;
+};
+
+type PrescriptionFromAudioResult = Prescription & {
+  transcription?: string;
+  aiProcessed?: boolean;
+};
+
 function getToken() {
   const token = useAuthStore.getState().accessToken;
   if (!token) throw new Error("No hay accessToken. Inicia sesión nuevamente.");
@@ -20,6 +33,22 @@ function buildQS(params: Record<string, any>) {
     qs.set(k, String(v));
   });
   return qs.toString();
+}
+
+function unwrap<T>(res: any): T {
+  // Desenvuelve SOLO si parece el envelope del TransformInterceptor
+  if (
+    res &&
+    typeof res === "object" &&
+    "statusCode" in res &&
+    "timestamp" in res &&
+    "path" in res &&
+    "method" in res &&
+    "data" in res
+  ) {
+    return (res as ApiEnvelope<T>).data;
+  }
+  return res as T;
 }
 
 /**
@@ -37,10 +66,12 @@ export async function listDoctorPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -55,10 +86,12 @@ export async function listMyPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions/me?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions/me?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -77,10 +110,12 @@ export async function listAdminPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions/admin?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions/admin?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -90,14 +125,16 @@ export async function listAdminPrescriptions(params: {
 export async function getPrescription(id: string) {
   const token = getToken();
 
-  return apiFetch<Prescription>(`/prescriptions/${id}`, {
+  const res = await apiFetch<any>(`/prescriptions/${id}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<Prescription>(res);
 }
 
 /**
- * DOCTOR: crear prescripción
+ * DOCTOR: crear prescripción (manual)
  * POST /prescriptions
  */
 export async function createPrescription(input: {
@@ -107,11 +144,37 @@ export async function createPrescription(input: {
 }) {
   const token = getToken();
 
-  return apiFetch<Prescription>("/prescriptions", {
+  const res = await apiFetch<any>("/prescriptions", {
     method: "POST",
     accessToken: token,
     body: JSON.stringify(input),
   });
+
+  return unwrap<Prescription>(res);
+}
+
+/**
+ * DOCTOR: crear prescripción desde audio
+ * POST /prescriptions/from-audio (multipart/form-data)
+ * fields: patientId (string), audio (file)
+ */
+export async function createPrescriptionFromAudio(input: {
+  patientId: string;
+  audioFile: File;
+}) {
+  const token = getToken();
+
+  const form = new FormData();
+  form.append("patientId", input.patientId);
+  form.append("audio", input.audioFile);
+
+  const res = await apiFetch<any>("/prescriptions/from-audio", {
+    method: "POST",
+    accessToken: token,
+    body: form,
+  });
+
+  return unwrap<PrescriptionFromAudioResult>(res);
 }
 
 /**
@@ -121,10 +184,12 @@ export async function createPrescription(input: {
 export async function consumePrescription(id: string) {
   const token = getToken();
 
-  return apiFetch<Prescription>(`/prescriptions/${id}/consume`, {
+  const res = await apiFetch<any>(`/prescriptions/${id}/consume`, {
     method: "PUT",
     accessToken: token,
   });
+
+  return unwrap<Prescription>(res);
 }
 
 /**
