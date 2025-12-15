@@ -7,6 +7,14 @@ import type {
   PrescriptionItem,
 } from "@/types";
 
+type ApiEnvelope<T> = {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
+  data: T;
+};
+
 function getToken() {
   const token = useAuthStore.getState().accessToken;
   if (!token) throw new Error("No hay accessToken. Inicia sesión nuevamente.");
@@ -22,9 +30,25 @@ function buildQS(params: Record<string, any>) {
   return qs.toString();
 }
 
+function unwrap<T>(res: any): T {
+  // Solo “desenvuelve” si parece la respuesta del TransformInterceptor
+  if (
+    res &&
+    typeof res === "object" &&
+    "statusCode" in res &&
+    "timestamp" in res &&
+    "path" in res &&
+    "method" in res &&
+    "data" in res
+  ) {
+    return (res as ApiEnvelope<T>).data;
+  }
+  return res as T;
+}
+
 /**
  * DOCTOR: listar propias prescripciones
- * GET /prescriptions?mine=true&status&from&to&page&limit
+ * GET /prescriptions?status&from&to&page&limit&order
  */
 export async function listDoctorPrescriptions(params: {
   status?: PrescriptionStatus;
@@ -32,14 +56,17 @@ export async function listDoctorPrescriptions(params: {
   to?: string; // YYYY-MM-DD
   page?: number;
   limit?: number;
+  order?: "asc" | "desc";
 }) {
   const token = getToken();
-  const q = buildQS({ mine: true, ...params });
+  const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -54,10 +81,12 @@ export async function listMyPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions/me?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions/me?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -76,27 +105,31 @@ export async function listAdminPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  return apiFetch<ListResult<Prescription>>(`/prescriptions/admin?${q}`, {
+  const res = await apiFetch<any>(`/prescriptions/admin?${q}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
- * Detalle (si existe en tu API)
+ * Detalle
  * GET /prescriptions/:id
  */
 export async function getPrescription(id: string) {
   const token = getToken();
 
-  return apiFetch<Prescription>(`/prescriptions/${id}`, {
+  const res = await apiFetch<any>(`/prescriptions/${id}`, {
     method: "GET",
     accessToken: token,
   });
+
+  return unwrap<Prescription>(res);
 }
 
 /**
- * DOCTOR: crear prescripción (si existe en tu API)
+ * DOCTOR: crear prescripción
  * POST /prescriptions
  */
 export async function createPrescription(input: {
@@ -106,33 +139,38 @@ export async function createPrescription(input: {
 }) {
   const token = getToken();
 
-  return apiFetch<Prescription>("/prescriptions", {
+  const res = await apiFetch<any>("/prescriptions", {
     method: "POST",
     accessToken: token,
     body: JSON.stringify(input),
   });
+
+  return unwrap<Prescription>(res);
 }
 
 /**
- * PATIENT: consumir (si existe en tu API)
+ * PATIENT: consumir
  * PUT /prescriptions/:id/consume
  */
 export async function consumePrescription(id: string) {
   const token = getToken();
 
-  return apiFetch<{ ok: boolean }>(`/prescriptions/${id}/consume`, {
+  const res = await apiFetch<any>(`/prescriptions/${id}/consume`, {
     method: "PUT",
     accessToken: token,
   });
+
+  return unwrap<Prescription>(res);
 }
 
 /**
- * PATIENT: descargar PDF (si existe en tu API)
+ * PATIENT/ADMIN: descargar PDF
  * GET /prescriptions/:id/pdf
  */
 export async function downloadPrescriptionPdf(id: string) {
   const token = getToken();
 
+  // Esto NO viene envuelto (es stream/pdf), no se “unwrapea”
   return apiFetch<Blob>(`/prescriptions/${id}/pdf`, {
     method: "GET",
     accessToken: token,

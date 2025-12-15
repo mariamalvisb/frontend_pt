@@ -116,3 +116,12 @@ body {
   font-size: 0.875rem;
   color: var(--danger);
 }
+
+.link-brand {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+.link-brand:hover {
+  text-decoration: underline;
+}
