@@ -1,194 +1,177 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { getPrescription } from "@/lib/prescriptions";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
-import { PrescriptionsCard } from "@/components/ui/prescriptions/PrescriptionsCard";
 
-type AnyObj = Record<string, any>;
+import { getPrescription } from "@/lib/prescriptions";
 
-function normalizePrescription(res: any): AnyObj {
-  // por si tu apiFetch devuelve { data: ... } o devuelve directo
-  return (
-    (res && typeof res === "object" && "data" in res ? res.data : res) ?? {}
-  );
-}
+import type { Prescription, PrescriptionItem } from "@/types";
+
+type Props = {
+  id: string;
+};
 
 function statusLabel(status?: string) {
-  if (status === "pending") return "Pendiente";
+  if (!status) return "—";
   if (status === "consumed") return "Consumida";
-  return status ?? "—";
+  if (status === "pending") return "Pendiente";
+  return status;
 }
 
-export default function DoctorPrescriptionDetail({ id }: { id: string }) {
-  const [p, setP] = useState<AnyObj | null>(null);
+export default function DoctorPrescriptionDetail({ id }: Props) {
+  const router = useRouter();
+
+  const [p, setP] = useState<Prescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const items = useMemo(() => {
-    const src = p ?? {};
-    return (src.items ??
-      src.prescriptionItems ??
-      src.lineItems ??
-      src.details ??
-      []) as AnyObj[];
-  }, [p]);
-
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
-    async function run() {
+    async function load() {
       setLoading(true);
       setError(null);
-
       try {
-        const res = await getPrescription(id);
-        if (!mounted) return;
-        setP(normalizePrescription(res));
+        const data = await getPrescription(id);
+        if (!alive) return;
+        setP(data);
       } catch (e: any) {
-        if (!mounted) return;
-        setError(
-          e?.message || "No se pudo cargar el detalle de la prescripción"
-        );
+        if (!alive) return;
+        setError(e?.message || "No se pudo cargar la prescripción.");
         setP(null);
       } finally {
-        if (mounted) setLoading(false);
+        if (alive) setLoading(false);
       }
     }
 
-    run();
+    load();
     return () => {
-      mounted = false;
+      alive = false;
     };
   }, [id]);
 
+  const title = p?.code ? `Prescripción ${p.code}` : "Detalle de prescripción";
+  const subtitle = "Información general e ítems formulados.";
+
   return (
     <PageContainer>
-      <PrescriptionsCard
-        title={p?.code ? `Prescripción ${p.code}` : "Detalle de prescripción"}
-        subtitle="Información general e ítems formulados."
-      >
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/doctor/prescriptions" className="btn btn-secondary">
-            Volver
-          </Link>
+      <div className="mx-auto max-w-4xl rounded-xl border bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+            <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
+          </div>
 
-          <div className="text-sm text-gray-600">
-            ID: <span className="font-medium">{id}</span>
+          <div className="flex flex-wrap items-start justify-end gap-2 sm:pt-0.5">
+            <div className="w-fit">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push("/doctor/prescriptions")}
+                disabled={loading}
+              >
+                Volver
+              </Button>
+            </div>
           </div>
         </div>
 
-        {error ? <Alert>{error}</Alert> : null}
-
-        {loading ? (
-          <div className="mt-4 text-sm text-gray-600">Cargando…</div>
-        ) : !p ? (
-          <div className="mt-4 text-sm text-gray-600">
-            No hay datos para mostrar.
+        {error ? (
+          <div className="mt-4">
+            <Alert>{error}</Alert>
           </div>
-        ) : (
-          <>
-            <div className="mt-4 grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
-              <div>
-                <div className="text-xs font-medium text-gray-500">Código</div>
-                <div className="mt-1 text-sm font-semibold">
-                  {p.code ?? "—"}
-                </div>
-              </div>
+        ) : null}
 
-              <div>
-                <div className="text-xs font-medium text-gray-500">Estado</div>
-                <div className="mt-1 text-sm font-semibold">
-                  {statusLabel(p.status)}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Patient ID
-                </div>
-                <div className="mt-1 text-sm">
-                  {p.patientId ?? p.patient?.id ?? "—"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Doctor ID
-                </div>
-                <div className="mt-1 text-sm">
-                  {p.authorId ??
-                    p.author?.id ??
-                    p.doctorId ??
-                    p.doctor?.id ??
-                    "—"}
-                </div>
-              </div>
-
-              {p.notes ? (
-                <div className="sm:col-span-2">
-                  <div className="text-xs font-medium text-gray-500">Notas</div>
-                  <div className="mt-1 text-sm">{p.notes}</div>
-                </div>
-              ) : null}
+        <div className="mt-6">
+          {loading ? (
+            <div className="text-sm text-gray-600">Cargando...</div>
+          ) : !p ? (
+            <div className="text-sm text-gray-600">
+              No hay datos para mostrar.
             </div>
+          ) : (
+            <>
+              <div className="rounded-lg border p-4">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Código
+                    </div>
+                    <div className="mt-1 text-sm">{p.code ?? "—"}</div>
+                  </div>
 
-            <div className="mt-4 overflow-hidden rounded-lg border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 font-medium text-gray-700">
-                      Nombre
-                    </th>
-                    <th className="px-4 py-3 font-medium text-gray-700">
-                      Dosis
-                    </th>
-                    <th className="px-4 py-3 font-medium text-gray-700">
-                      Cantidad
-                    </th>
-                    <th className="px-4 py-3 font-medium text-gray-700">
-                      Instrucciones
-                    </th>
-                  </tr>
-                </thead>
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Estado
+                    </div>
+                    <div className="mt-1 text-sm">{statusLabel(p.status)}</div>
+                  </div>
 
-                <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-gray-600" colSpan={4}>
-                        No hay ítems para mostrar.
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map((it, idx) => (
-                      <tr
-                        key={it.id ?? `${it.name ?? "item"}-${idx}`}
-                        className="border-t"
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Patient ID
+                    </div>
+                    <div className="mt-1 text-sm">
+                      {(p as any).patientId ?? (p as any).patient?.id ?? "—"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Doctor ID
+                    </div>
+                    <div className="mt-1 text-sm">
+                      {(p as any).authorId ?? (p as any).author?.id ?? "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {p.notes ? (
+                  <div className="mt-4">
+                    <div className="text-xs font-medium text-gray-500">
+                      Notas
+                    </div>
+                    <div className="mt-1 text-sm">{p.notes}</div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-lg border">
+                <div className="grid grid-cols-4 gap-0 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600">
+                  <div>Nombre</div>
+                  <div>Dosis</div>
+                  <div>Cantidad</div>
+                  <div>Instrucciones</div>
+                </div>
+
+                {((p.items as any[]) ?? []).length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-gray-600">
+                    Sin ítems.
+                  </div>
+                ) : (
+                  (p.items as PrescriptionItem[]).map(
+                    (it: PrescriptionItem, idx: number) => (
+                      <div
+                        key={it.id ?? `${it.name}-${idx}`}
+                        className="grid grid-cols-4 gap-0 border-t px-4 py-3 text-sm"
                       >
-                        <td className="px-4 py-3">{it.name ?? "—"}</td>
-                        <td className="px-4 py-3">
-                          {it.dosage ?? it.dose ?? "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {typeof it.quantity === "number" ||
-                          typeof it.quantity === "string"
-                            ? it.quantity
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {it.instructions ?? it.indications ?? "—"}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </PrescriptionsCard>
+                        <div className="truncate">{it.name ?? "—"}</div>
+                        <div className="truncate">{it.dosage ?? "—"}</div>
+                        <div>{it.quantity ?? "—"}</div>
+                        <div className="truncate">{it.instructions ?? "—"}</div>
+                      </div>
+                    )
+                  )
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </PageContainer>
   );
 }

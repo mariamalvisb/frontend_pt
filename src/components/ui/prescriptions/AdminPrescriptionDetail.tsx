@@ -7,11 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
 
-import {
-  getPrescription,
-  consumePrescription,
-  downloadPrescriptionPdf,
-} from "@/lib/prescriptions";
+import { getPrescription, downloadPrescriptionPdf } from "@/lib/prescriptions";
 
 import type { Prescription, PrescriptionItem } from "@/types";
 
@@ -26,17 +22,46 @@ function statusLabel(status?: string) {
   return status;
 }
 
-export default function PatientPrescriptionDetail({ id }: Props) {
+function dateLabel(raw?: any) {
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString("es-ES");
+}
+
+export default function AdminPrescriptionDetail({ id }: Props) {
   const router = useRouter();
 
   const [p, setP] = useState<Prescription | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
-  const [busyConsume, setBusyConsume] = useState(false);
   const [busyPdf, setBusyPdf] = useState(false);
 
-  const isConsumed = useMemo(() => p?.status === "consumed", [p?.status]);
+  const doctorName = useMemo(() => {
+    const anyP = p as any;
+    return (
+      anyP?.author?.user?.name ||
+      anyP?.doctor?.user?.name ||
+      anyP?.author?.user?.email ||
+      "—"
+    );
+  }, [p]);
+
+  const patientName = useMemo(() => {
+    const anyP = p as any;
+    return anyP?.patient?.user?.name || anyP?.patient?.user?.email || "—";
+  }, [p]);
+
+  const doctorId = useMemo(() => {
+    const anyP = p as any;
+    return anyP?.authorId ?? anyP?.author?.id ?? "—";
+  }, [p]);
+
+  const patientId = useMemo(() => {
+    const anyP = p as any;
+    return anyP?.patientId ?? anyP?.patient?.id ?? "—";
+  }, [p]);
 
   useEffect(() => {
     let alive = true;
@@ -63,21 +88,6 @@ export default function PatientPrescriptionDetail({ id }: Props) {
     };
   }, [id]);
 
-  async function onConsume() {
-    if (!p) return;
-
-    setBusyConsume(true);
-    setError(null);
-    try {
-      const updated = await consumePrescription((p as any).id);
-      setP(updated);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo marcar como consumida.");
-    } finally {
-      setBusyConsume(false);
-    }
-  }
-
   async function onDownloadPdf() {
     if (!p) return;
 
@@ -102,8 +112,8 @@ export default function PatientPrescriptionDetail({ id }: Props) {
     }
   }
 
-  const title = p?.code ? `Prescripción ${p.code}` : "Detalle de prescripción";
-  const subtitle = "Información general e ítems formulados.";
+  const title = p?.code ? `Prescripción ${p.code} (Admin)` : "Detalle (Admin)";
+  const subtitle = "Vista global: datos, ítems y descarga PDF.";
 
   return (
     <PageContainer>
@@ -119,7 +129,7 @@ export default function PatientPrescriptionDetail({ id }: Props) {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => router.back()}
+                onClick={() => router.push("/admin/prescriptions")}
                 disabled={loading}
               >
                 Volver
@@ -133,20 +143,6 @@ export default function PatientPrescriptionDetail({ id }: Props) {
                 disabled={loading || !p || busyPdf}
               >
                 {busyPdf ? "Descargando..." : "Descargar PDF"}
-              </Button>
-            </div>
-
-            <div className="w-fit">
-              <Button
-                type="button"
-                onClick={onConsume}
-                disabled={loading || !p || busyConsume || isConsumed}
-              >
-                {isConsumed
-                  ? "Consumida"
-                  : busyConsume
-                  ? "Marcando..."
-                  : "Consumir"}
               </Button>
             </div>
           </div>
@@ -185,20 +181,50 @@ export default function PatientPrescriptionDetail({ id }: Props) {
 
                   <div>
                     <div className="text-xs font-medium text-gray-500">
-                      Patient ID
+                      Fecha creación
                     </div>
                     <div className="mt-1 text-sm">
-                      {(p as any).patientId ?? (p as any).patient?.id ?? "—"}
+                      {dateLabel((p as any).createdAt)}
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Fecha consumo
+                    </div>
+                    <div className="mt-1 text-sm">
+                      {dateLabel((p as any).consumedAt)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Doctor
+                    </div>
+                    <div className="mt-1 text-sm">{doctorName}</div>
                   </div>
 
                   <div>
                     <div className="text-xs font-medium text-gray-500">
                       Doctor ID
                     </div>
-                    <div className="mt-1 text-sm">
-                      {(p as any).authorId ?? (p as any).author?.id ?? "—"}
+                    <div className="mt-1 text-sm">{doctorId}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Paciente
                     </div>
+                    <div className="mt-1 text-sm">{patientName}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Patient ID
+                    </div>
+                    <div className="mt-1 text-sm">{patientId}</div>
                   </div>
                 </div>
 
@@ -220,7 +246,7 @@ export default function PatientPrescriptionDetail({ id }: Props) {
                   <div>Instrucciones</div>
                 </div>
 
-                {((p.items as any[]) ?? []).length === 0 ? (
+                {(p.items ?? []).length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-600">
                     Sin ítems.
                   </div>
