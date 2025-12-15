@@ -7,14 +7,6 @@ import type {
   PrescriptionItem,
 } from "@/types";
 
-type ApiEnvelope<T> = {
-  statusCode: number;
-  timestamp: string;
-  path: string;
-  method: string;
-  data: T;
-};
-
 function getToken() {
   const token = useAuthStore.getState().accessToken;
   if (!token) throw new Error("No hay accessToken. Inicia sesión nuevamente.");
@@ -28,22 +20,6 @@ function buildQS(params: Record<string, any>) {
     qs.set(k, String(v));
   });
   return qs.toString();
-}
-
-function unwrap<T>(res: any): T {
-  // Solo “desenvuelve” si parece la respuesta del TransformInterceptor
-  if (
-    res &&
-    typeof res === "object" &&
-    "statusCode" in res &&
-    "timestamp" in res &&
-    "path" in res &&
-    "method" in res &&
-    "data" in res
-  ) {
-    return (res as ApiEnvelope<T>).data;
-  }
-  return res as T;
 }
 
 /**
@@ -61,12 +37,10 @@ export async function listDoctorPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  const res = await apiFetch<any>(`/prescriptions?${q}`, {
+  return apiFetch<ListResult<Prescription>>(`/prescriptions?${q}`, {
     method: "GET",
     accessToken: token,
   });
-
-  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -81,12 +55,10 @@ export async function listMyPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  const res = await apiFetch<any>(`/prescriptions/me?${q}`, {
+  return apiFetch<ListResult<Prescription>>(`/prescriptions/me?${q}`, {
     method: "GET",
     accessToken: token,
   });
-
-  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -105,12 +77,10 @@ export async function listAdminPrescriptions(params: {
   const token = getToken();
   const q = buildQS(params);
 
-  const res = await apiFetch<any>(`/prescriptions/admin?${q}`, {
+  return apiFetch<ListResult<Prescription>>(`/prescriptions/admin?${q}`, {
     method: "GET",
     accessToken: token,
   });
-
-  return unwrap<ListResult<Prescription>>(res);
 }
 
 /**
@@ -120,12 +90,10 @@ export async function listAdminPrescriptions(params: {
 export async function getPrescription(id: string) {
   const token = getToken();
 
-  const res = await apiFetch<any>(`/prescriptions/${id}`, {
+  return apiFetch<Prescription>(`/prescriptions/${id}`, {
     method: "GET",
     accessToken: token,
   });
-
-  return unwrap<Prescription>(res);
 }
 
 /**
@@ -139,13 +107,11 @@ export async function createPrescription(input: {
 }) {
   const token = getToken();
 
-  const res = await apiFetch<any>("/prescriptions", {
+  return apiFetch<Prescription>("/prescriptions", {
     method: "POST",
     accessToken: token,
     body: JSON.stringify(input),
   });
-
-  return unwrap<Prescription>(res);
 }
 
 /**
@@ -155,12 +121,10 @@ export async function createPrescription(input: {
 export async function consumePrescription(id: string) {
   const token = getToken();
 
-  const res = await apiFetch<any>(`/prescriptions/${id}/consume`, {
+  return apiFetch<Prescription>(`/prescriptions/${id}/consume`, {
     method: "PUT",
     accessToken: token,
   });
-
-  return unwrap<Prescription>(res);
 }
 
 /**
@@ -170,7 +134,6 @@ export async function consumePrescription(id: string) {
 export async function downloadPrescriptionPdf(id: string) {
   const token = getToken();
 
-  // Esto NO viene envuelto (es stream/pdf), no se “unwrapea”
   return apiFetch<Blob>(`/prescriptions/${id}/pdf`, {
     method: "GET",
     accessToken: token,

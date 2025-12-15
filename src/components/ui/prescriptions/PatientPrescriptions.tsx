@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import type { Prescription, PrescriptionStatus } from "@/types";
 import { listMyPrescriptions } from "@/lib/prescriptions";
 import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
+import { Button } from "@/components/ui/Button";
 
 type Meta = {
   total: number;
@@ -15,6 +18,8 @@ type Meta = {
 };
 
 export default function PatientPrescriptions() {
+  const router = useRouter();
+
   const [status, setStatus] = useState<"" | PrescriptionStatus>("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -62,11 +67,15 @@ export default function PatientPrescriptions() {
   const canPrev = (meta?.page ?? page) > 1;
   const canNext = (meta?.page ?? page) < (meta?.totalPages ?? page);
 
+  function goToDetail(id: string) {
+    router.push(`/patient/prescriptions/${id}`);
+  }
+
   return (
     <PageContainer>
       <PrescriptionsCard
         title="Mis prescripciones"
-        subtitle="Listado de prescripciones asociadas a tu usuario."
+        subtitle="Listado de prescripciones asociadas a tu usuario. Haz clic en una para ver el detalle (PDF / Consumir)."
       >
         {error ? <Alert>{error}</Alert> : null}
 
@@ -126,28 +135,51 @@ export default function PatientPrescriptions() {
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-700">Código</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Estado</th>
+                <th className="px-4 py-3 font-medium text-gray-700">
+                  Acciones
+                </th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={2}>
+                  <td className="px-4 py-6 text-gray-600" colSpan={3}>
                     Cargando…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={2}>
+                  <td className="px-4 py-6 text-gray-600" colSpan={3}>
                     No hay prescripciones para mostrar.
                   </td>
                 </tr>
               ) : (
                 items.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="px-4 py-3">{p.code ?? "—"}</td>
+                  <tr
+                    key={p.id}
+                    className="border-t cursor-pointer hover:bg-gray-50"
+                    onClick={() => goToDetail(p.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") goToDetail(p.id);
+                    }}
+                  >
+                    <td className="px-4 py-3">
+                      <span className="text-blue-700 hover:underline">
+                        {p.code ?? "—"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       {p.status === "pending" ? "Pendiente" : "Consumida"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Button type="button" onClick={() => goToDetail(p.id)}>
+                          Ver detalle
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
