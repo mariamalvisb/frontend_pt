@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { Role } from "@/types";
 import { useAuthStore } from "@/store/auth.store";
 import { bootstrapAuth } from "@/lib/auth";
@@ -21,7 +21,6 @@ export function RequireAuth({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const sp = useSearchParams();
 
   const { user, isAuthenticated, isLoading } = useAuthStore();
 
@@ -29,14 +28,19 @@ export function RequireAuth({
     bootstrapAuth();
   }, []);
 
+  const nextUrl = useMemo(() => {
+    // Evita useSearchParams() para que no rompa el build en App Router
+    const search =
+      typeof window !== "undefined" ? window.location.search ?? "" : "";
+    return `${pathname}${search}`;
+  }, [pathname]);
+
   useEffect(() => {
     if (isLoading) return;
 
     // No autenticado -> a login con next
     if (!isAuthenticated || !user) {
-      const query = sp?.toString();
-      const next = query ? `${pathname}?${query}` : pathname;
-      router.replace(`/login?next=${encodeURIComponent(next)}`);
+      router.replace(`/login?next=${encodeURIComponent(nextUrl)}`);
       return;
     }
 
@@ -44,7 +48,7 @@ export function RequireAuth({
     if (roles?.length && !roles.includes(user.role)) {
       router.replace(homeByRole(user.role));
     }
-  }, [isLoading, isAuthenticated, user, roles, pathname, sp, router]);
+  }, [isLoading, isAuthenticated, user, roles, nextUrl, router]);
 
   if (isLoading) return <div>Cargando…</div>;
   if (!isAuthenticated || !user) return null;

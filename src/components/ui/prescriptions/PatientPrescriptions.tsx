@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
 import { Button } from "@/components/ui/Button";
+import { LogoutButton } from "../LogouButton";
 
 type Meta = {
   total: number;
@@ -118,14 +119,17 @@ export default function PatientPrescriptions() {
             </div>
           </div>
 
-          <div className="text-sm text-gray-600">
-            {meta ? (
-              <>
-                Total: <span className="font-medium">{meta.total}</span> ·
-                Página <span className="font-medium">{meta.page}</span> /{" "}
-                <span className="font-medium">{meta.totalPages}</span>
-              </>
-            ) : null}
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-gray-600">
+              {meta ? (
+                <>
+                  Total: <span className="font-medium">{meta.total}</span> ·
+                  Página <span className="font-medium">{meta.page}</span> /{" "}
+                  <span className="font-medium">{meta.totalPages}</span>
+                </>
+              ) : null}
+            </div>
+            <LogoutButton />
           </div>
         </div>
 

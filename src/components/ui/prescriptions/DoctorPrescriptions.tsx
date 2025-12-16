@@ -7,6 +7,7 @@ import { listDoctorPrescriptions } from "@/lib/prescriptions";
 import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
+import { LogoutButton } from "../LogouButton";
 
 type Meta = {
   total: number;
@@ -94,9 +95,12 @@ export default function DoctorPrescriptions() {
             ) : null}
           </div>
 
-          <Link href="/doctor/prescriptions/new" className="btn btn-primary">
-            Nueva
-          </Link>
+          <div className="flex items-center gap-2">
+            <LogoutButton className="btn btn-secondary" />
+            <Link href="/doctor/prescriptions/new" className="btn btn-primary">
+              Nueva
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

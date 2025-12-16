@@ -8,6 +8,7 @@ import { listAdminPrescriptions } from "@/lib/prescriptions";
 import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
+import { LogoutButton } from "../LogouButton";
 
 type Meta = {
   total: number;
@@ -121,6 +122,10 @@ export default function AdminPrescriptions() {
         title="Prescripciones (Admin)"
         subtitle="Consulta global con filtros por estado, doctor, paciente y fechas."
       >
+        <div className="mt-2 flex items-center justify-end">
+          <LogoutButton />
+        </div>
+
         {error ? <Alert>{error}</Alert> : null}
 
         <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
