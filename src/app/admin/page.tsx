@@ -1,3 +1,5 @@
+import AdminHome from "@/components/admin/AdminHome";
+
 export default function AdminPage() {
-  return <div>Admin (placeholder)</div>;
+  return <AdminHome />;
 }
