@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { useToast } from "@/components/ui/ToastProvider";
 
 import {
   getPrescription,
@@ -26,8 +27,14 @@ function statusLabel(status?: string) {
   return status;
 }
 
+function unwrapPrescription(payload: any): Prescription {
+  // Soporta respuestas tipo: data, {data: {...}}, {data: {data: {...}}}
+  return (payload?.data?.data ?? payload?.data ?? payload) as Prescription;
+}
+
 export default function PatientPrescriptionDetail({ id }: Props) {
   const router = useRouter();
+  const toast = useToast();
 
   const [p, setP] = useState<Prescription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,8 +52,9 @@ export default function PatientPrescriptionDetail({ id }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const data = await getPrescription(id);
+        const res = await getPrescription(id);
         if (!alive) return;
+        const data = unwrapPrescription(res);
         setP(data);
       } catch (e: any) {
         if (!alive) return;
@@ -64,15 +72,21 @@ export default function PatientPrescriptionDetail({ id }: Props) {
   }, [id]);
 
   async function onConsume() {
-    if (!p) return;
+    if (!p || isConsumed) return;
 
     setBusyConsume(true);
     setError(null);
     try {
-      const updated = await consumePrescription((p as any).id);
+      const prescId = (p as any).id ?? id;
+      const res = await consumePrescription(prescId);
+      const updated = unwrapPrescription(res);
+
       setP(updated);
+      toast.success("Prescripción marcada como consumida.", "Consumida");
     } catch (e: any) {
-      setError(e?.message || "No se pudo marcar como consumida.");
+      const msg = e?.message || "No se pudo marcar como consumida.";
+      setError(msg);
+      toast.error(msg, "Error");
     } finally {
       setBusyConsume(false);
     }
@@ -84,19 +98,24 @@ export default function PatientPrescriptionDetail({ id }: Props) {
     setBusyPdf(true);
     setError(null);
     try {
-      const blob = await downloadPrescriptionPdf((p as any).id);
+      const prescId = (p as any).id ?? id;
+      const blob = await downloadPrescriptionPdf(prescId);
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `prescripcion-${(p as any).code || (p as any).id}.pdf`;
+      a.download = `prescripcion-${(p as any).code || prescId}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
 
       URL.revokeObjectURL(url);
+
+      toast.success("PDF descargado correctamente.", "Descarga");
     } catch (e: any) {
-      setError(e?.message || "No se pudo descargar el PDF.");
+      const msg = e?.message || "No se pudo descargar el PDF.";
+      setError(msg);
+      toast.error(msg, "Error");
     } finally {
       setBusyPdf(false);
     }
@@ -225,19 +244,17 @@ export default function PatientPrescriptionDetail({ id }: Props) {
                     Sin ítems.
                   </div>
                 ) : (
-                  (p.items as PrescriptionItem[]).map(
-                    (it: PrescriptionItem, idx: number) => (
-                      <div
-                        key={it.id ?? `${it.name}-${idx}`}
-                        className="grid grid-cols-4 gap-0 border-t px-4 py-3 text-sm"
-                      >
-                        <div className="truncate">{it.name ?? "—"}</div>
-                        <div className="truncate">{it.dosage ?? "—"}</div>
-                        <div>{it.quantity ?? "—"}</div>
-                        <div className="truncate">{it.instructions ?? "—"}</div>
-                      </div>
-                    )
-                  )
+                  (p.items as PrescriptionItem[]).map((it, idx) => (
+                    <div
+                      key={(it as any).id ?? `${it.name}-${idx}`}
+                      className="grid grid-cols-4 gap-0 border-t px-4 py-3 text-sm"
+                    >
+                      <div className="truncate">{it.name ?? "—"}</div>
+                      <div className="truncate">{it.dosage ?? "—"}</div>
+                      <div>{it.quantity ?? "—"}</div>
+                      <div className="truncate">{it.instructions ?? "—"}</div>
+                    </div>
+                  ))
                 )}
               </div>
             </>

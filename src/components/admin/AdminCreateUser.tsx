@@ -7,9 +7,11 @@ import { Alert } from "@/components/ui/Alert";
 import { registerUser } from "@/lib/admin-users";
 import type { Role } from "@/types";
 import { LogoutButton } from "../ui/LogoutButton";
+import { useToast } from "@/components/ui/ToastProvider";
 
 export default function AdminCreateUser() {
   const router = useRouter();
+  const toast = useToast();
 
   const [role, setRole] = useState<Role>("patient");
   const [name, setName] = useState("");
@@ -29,11 +31,15 @@ export default function AdminCreateUser() {
 
     // Validación mínima (sin inventar reglas)
     if (!name.trim() || !email.trim() || !password.trim()) {
-      setError("Completa nombre, email y contraseña.");
+      const msg = "Completa nombre, email y contraseña.";
+      setError(msg);
+      toast.error(msg, "Error");
       return;
     }
     if (role !== "doctor" && role !== "patient") {
-      setError("El rol debe ser doctor o patient.");
+      const msg = "El rol debe ser doctor o patient.";
+      setError(msg);
+      toast.error(msg, "Error");
       return;
     }
 
@@ -49,11 +55,14 @@ export default function AdminCreateUser() {
         birthDate: birthDate || undefined,
       });
 
+      toast.success(`Usuario creado correctamente (${role}).`, "Creado");
+
       // ✅ Para que puedas “probar” que quedó creado:
-      // redirigimos a la lista correspondiente
       router.push(role === "doctor" ? "/admin/doctors" : "/admin/patients");
     } catch (e: any) {
-      setError(e?.message || "No se pudo crear el usuario");
+      const msg = e?.message || "No se pudo crear el usuario";
+      setError(msg);
+      toast.error(msg, "Error");
     } finally {
       setLoading(false);
     }

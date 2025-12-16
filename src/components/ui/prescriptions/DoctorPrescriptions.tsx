@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Prescription, PrescriptionStatus } from "@/types";
 import { listDoctorPrescriptions } from "@/lib/prescriptions";
 import { Alert } from "@/components/ui/Alert";
@@ -18,7 +18,25 @@ type Meta = {
 
 type Order = "" | "asc" | "desc";
 
+function statusLabel(s?: PrescriptionStatus | string) {
+  if (!s) return "—";
+  if (s === "pending") return "Pendiente";
+  if (s === "consumed") return "Consumida";
+  return String(s);
+}
+
+function createdAtLabel(p: Prescription) {
+  const anyP = p as any;
+  const raw = anyP?.createdAt;
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString("es-ES");
+}
+
 export default function DoctorPrescriptions() {
+  const router = useRouter();
+
   const [status, setStatus] = useState<"" | PrescriptionStatus>("");
   const [order, setOrder] = useState<Order>("");
   const [from, setFrom] = useState(""); // YYYY-MM-DD
@@ -82,102 +100,111 @@ export default function DoctorPrescriptions() {
         title="Prescripciones"
         subtitle="Listado de prescripciones asociadas a tu usuario (Doctor)."
       >
-        {error ? <Alert>{error}</Alert> : null}
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm text-gray-600">
-            {meta ? (
-              <>
-                Total: <span className="font-medium">{meta.total}</span> ·
-                Página <span className="font-medium">{meta.page}</span> /{" "}
-                <span className="font-medium">{meta.totalPages}</span>
-              </>
-            ) : null}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <LogoutButton className="btn btn-secondary" />
-            <Link href="/doctor/prescriptions/new" className="btn btn-primary">
-              Nueva
-            </Link>
-          </div>
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <button
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={() => router.push("/doctor/prescriptions/new")}
+          >
+            Nueva
+          </button>
+          <LogoutButton />
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div>
-              <label className="label">Estado</label>
-              <select
-                className="input"
-                value={status}
-                onChange={(e) => {
-                  setPage(1);
-                  setStatus(e.target.value as any);
-                }}
-              >
-                <option value="">Todos</option>
-                <option value="pending">Pendiente</option>
-                <option value="consumed">Consumida</option>
-              </select>
-            </div>
+        {error ? <Alert>{error}</Alert> : null}
 
-            <div>
-              <label className="label">Desde</label>
-              <input
-                className="input"
-                type="date"
-                value={from}
-                onChange={(e) => {
-                  setPage(1);
-                  setFrom(e.target.value);
-                }}
-              />
-            </div>
+        <div className="mt-3 text-sm text-gray-600">
+          {meta ? (
+            <>
+              Total: <span className="font-medium">{meta.total}</span> · Página{" "}
+              <span className="font-medium">{meta.page}</span> /{" "}
+              <span className="font-medium">{meta.totalPages}</span>
+            </>
+          ) : null}
+        </div>
 
-            <div>
-              <label className="label">Hasta</label>
-              <input
-                className="input"
-                type="date"
-                value={to}
-                onChange={(e) => {
-                  setPage(1);
-                  setTo(e.target.value);
-                }}
-              />
-            </div>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Estado
+            </label>
+            <select
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={status}
+              onChange={(e) => {
+                setPage(1);
+                setStatus(e.target.value as any);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="consumed">Consumida</option>
+            </select>
+          </div>
 
-            <div>
-              <label className="label">Orden</label>
-              <select
-                className="input"
-                value={order}
-                onChange={(e) => {
-                  setPage(1);
-                  setOrder(e.target.value as any);
-                }}
-              >
-                <option value="">(default)</option>
-                <option value="desc">Desc</option>
-                <option value="asc">Asc</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Desde
+            </label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setPage(1);
+                setFrom(e.target.value);
+              }}
+            />
+          </div>
 
-            <div>
-              <label className="label">Límite</label>
-              <select
-                className="input"
-                value={limit}
-                onChange={(e) => {
-                  setPage(1);
-                  setLimit(Number(e.target.value));
-                }}
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Hasta
+            </label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setPage(1);
+                setTo(e.target.value);
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Orden
+            </label>
+            <select
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={order}
+              onChange={(e) => {
+                setPage(1);
+                setOrder(e.target.value as any);
+              }}
+            >
+              <option value="">(default)</option>
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Límite
+            </label>
+            <select
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={limit}
+              onChange={(e) => {
+                setPage(1);
+                setLimit(Number(e.target.value));
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
           </div>
         </div>
 
@@ -187,35 +214,39 @@ export default function DoctorPrescriptions() {
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-700">Código</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Estado</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Fecha</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Acción</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={2}>
+                  <td className="px-4 py-6 text-gray-600" colSpan={4}>
                     Cargando…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={2}>
+                  <td className="px-4 py-6 text-gray-600" colSpan={4}>
                     No hay prescripciones para mostrar.
                   </td>
                 </tr>
               ) : (
                 items.map((p) => (
                   <tr key={p.id} className="border-t">
+                    <td className="px-4 py-3">{p.code ?? "—"}</td>
+                    <td className="px-4 py-3">{statusLabel(p.status)}</td>
+                    <td className="px-4 py-3">{createdAtLabel(p)}</td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/doctor/prescriptions/${p.id}`}
-                        className="link-brand"
+                      <button
+                        className="rounded-md border px-3 py-2 text-sm"
+                        onClick={() =>
+                          router.push(`/doctor/prescriptions/${p.id}`)
+                        }
                       >
-                        {p.code ?? "—"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      {p.status === "pending" ? "Pendiente" : "Consumida"}
+                        Ver
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -226,7 +257,7 @@ export default function DoctorPrescriptions() {
 
         <div className="mt-4 flex items-center justify-between">
           <button
-            className="btn btn-secondary"
+            className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
             disabled={!canPrev || loading}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
@@ -234,7 +265,7 @@ export default function DoctorPrescriptions() {
           </button>
 
           <button
-            className="btn btn-secondary"
+            className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
             disabled={!canNext || loading}
             onClick={() => setPage((p) => p + 1)}
           >
