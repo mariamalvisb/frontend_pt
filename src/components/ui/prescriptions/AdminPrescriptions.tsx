@@ -8,7 +8,7 @@ import { listAdminPrescriptions } from "@/lib/prescriptions";
 import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
-import { LogoutButton } from "../LogouButton";
+import { LogoutButton } from "../LogoutButton";
 
 type Meta = {
   total: number;
@@ -17,17 +17,30 @@ type Meta = {
   totalPages: number;
 };
 
+type Filters = {
+  status: "" | PrescriptionStatus;
+  doctorId: string;
+  patientId: string;
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+};
+
+const emptyFilters: Filters = {
+  status: "",
+  doctorId: "",
+  patientId: "",
+  from: "",
+  to: "",
+};
+
 export default function AdminPrescriptions() {
   const router = useRouter();
 
-  const [status, setStatus] = useState<"" | PrescriptionStatus>("");
-  const [doctorId, setDoctorId] = useState("");
-  const [patientId, setPatientId] = useState("");
-  const [from, setFrom] = useState(""); // YYYY-MM-DD
-  const [to, setTo] = useState(""); // YYYY-MM-DD
-
-  const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState<Filters>(emptyFilters);
   const [limit, setLimit] = useState(10);
+
+  const [applied, setApplied] = useState<Filters>(emptyFilters);
+  const [page, setPage] = useState(1);
 
   const [items, setItems] = useState<Prescription[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -37,15 +50,15 @@ export default function AdminPrescriptions() {
 
   const query = useMemo(
     () => ({
-      status: status || undefined,
-      doctorId: doctorId.trim() || undefined,
-      patientId: patientId.trim() || undefined,
-      from: from || undefined,
-      to: to || undefined,
+      status: applied.status || undefined,
+      doctorId: applied.doctorId.trim() || undefined,
+      patientId: applied.patientId.trim() || undefined,
+      from: applied.from || undefined,
+      to: applied.to || undefined,
       page,
       limit,
     }),
-    [status, doctorId, patientId, from, to, page, limit]
+    [applied, page, limit]
   );
 
   useEffect(() => {
@@ -79,6 +92,18 @@ export default function AdminPrescriptions() {
 
   const canPrev = (meta?.page ?? page) > 1;
   const canNext = (meta?.page ?? page) < (meta?.totalPages ?? page);
+
+  function applyFilters() {
+    setPage(1);
+    setApplied(draft);
+  }
+
+  function clearFilters() {
+    setPage(1);
+    setDraft(emptyFilters);
+    setApplied(emptyFilters);
+    setLimit(10);
+  }
 
   function statusLabel(s?: string) {
     if (!s) return "—";
@@ -122,24 +147,62 @@ export default function AdminPrescriptions() {
         title="Prescripciones (Admin)"
         subtitle="Consulta global con filtros por estado, doctor, paciente y fechas."
       >
-        <div className="mt-2 flex items-center justify-end">
-          <LogoutButton />
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-gray-600">
+            {meta ? (
+              <>
+                Total: <span className="font-medium">{meta.total}</span> ·
+                Página <span className="font-medium">{meta.page}</span> /{" "}
+                <span className="font-medium">{meta.totalPages}</span>
+              </>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+              onClick={() => router.push("/admin/users/new")}
+              disabled={loading}
+            >
+              Crear usuario
+            </button>
+
+            <button
+              type="button"
+              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+              onClick={applyFilters}
+              disabled={loading}
+            >
+              Aplicar filtros
+            </button>
+
+            <button
+              type="button"
+              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+              onClick={clearFilters}
+              disabled={loading}
+            >
+              Limpiar
+            </button>
+
+            <LogoutButton />
+          </div>
         </div>
 
         {error ? <Alert>{error}</Alert> : null}
 
-        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Estado
             </label>
             <select
               className="mt-1 w-full rounded-md border px-3 py-2"
-              value={status}
-              onChange={(e) => {
-                setPage(1);
-                setStatus(e.target.value as any);
-              }}
+              value={draft.status}
+              onChange={(e) =>
+                setDraft((s) => ({ ...s, status: e.target.value as any }))
+              }
             >
               <option value="">Todos</option>
               <option value="pending">Pendiente</option>
@@ -153,10 +216,12 @@ export default function AdminPrescriptions() {
             </label>
             <input
               className="mt-1 w-full rounded-md border px-3 py-2"
-              value={doctorId}
-              onChange={(e) => {
-                setPage(1);
-                setDoctorId(e.target.value);
+              value={draft.doctorId}
+              onChange={(e) =>
+                setDraft((s) => ({ ...s, doctorId: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyFilters();
               }}
               placeholder="Ej: cmj7..."
             />
@@ -168,10 +233,12 @@ export default function AdminPrescriptions() {
             </label>
             <input
               className="mt-1 w-full rounded-md border px-3 py-2"
-              value={patientId}
-              onChange={(e) => {
-                setPage(1);
-                setPatientId(e.target.value);
+              value={draft.patientId}
+              onChange={(e) =>
+                setDraft((s) => ({ ...s, patientId: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyFilters();
               }}
               placeholder="Ej: cmj7..."
             />
@@ -179,31 +246,27 @@ export default function AdminPrescriptions() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Desde (YYYY-MM-DD)
+              Desde
             </label>
             <input
               className="mt-1 w-full rounded-md border px-3 py-2"
-              value={from}
-              onChange={(e) => {
-                setPage(1);
-                setFrom(e.target.value);
-              }}
-              placeholder="2025-12-01"
+              type="date"
+              value={draft.from}
+              onChange={(e) =>
+                setDraft((s) => ({ ...s, from: e.target.value }))
+              }
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Hasta (YYYY-MM-DD)
+              Hasta
             </label>
             <input
               className="mt-1 w-full rounded-md border px-3 py-2"
-              value={to}
-              onChange={(e) => {
-                setPage(1);
-                setTo(e.target.value);
-              }}
-              placeholder="2025-12-31"
+              type="date"
+              value={draft.to}
+              onChange={(e) => setDraft((s) => ({ ...s, to: e.target.value }))}
             />
           </div>
 
@@ -224,16 +287,6 @@ export default function AdminPrescriptions() {
               <option value={20}>20</option>
             </select>
           </div>
-        </div>
-
-        <div className="mt-3 text-sm text-gray-600">
-          {meta ? (
-            <>
-              Total: <span className="font-medium">{meta.total}</span> · Página{" "}
-              <span className="font-medium">{meta.page}</span> /{" "}
-              <span className="font-medium">{meta.totalPages}</span>
-            </>
-          ) : null}
         </div>
 
         <div className="mt-4 overflow-hidden rounded-lg border">

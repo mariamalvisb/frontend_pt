@@ -1,3 +1,5 @@
-export default function AdminPage() {
-  return <div>Admin (placeholder)</div>;
+import AdminPrescriptions from "@/components/ui/prescriptions/AdminPrescriptions";
+
+export default function Page() {
+  return <AdminPrescriptions />;
 }

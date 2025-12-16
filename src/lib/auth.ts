@@ -1,7 +1,6 @@
-// src/lib/auth.ts
 import { apiFetch } from "@/lib/fetcher";
 import { useAuthStore } from "@/store/auth.store";
-import type { AuthProfile } from "@/types";
+import type { AuthProfile, Role } from "@/types";
 
 type LoginResponse = {
   user: AuthProfile;
@@ -19,9 +18,7 @@ type RefreshResponse = {
   refreshToken: string;
 };
 
-type LogoutResponse = {
-  message: string;
-};
+type RegisterResponse = any;
 
 export async function login(
   email: string,
@@ -30,6 +27,25 @@ export async function login(
   return apiFetch<LoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
+  });
+}
+
+/**
+ * Usa POST /auth/register
+ * Si tu backend no acepta "role", quita role del body (te lo ajusto con el error exacto).
+ */
+export async function registerUser(payload: {
+  email: string;
+  password: string;
+  name: string;
+  role?: Role;
+}): Promise<RegisterResponse> {
+  const token = useAuthStore.getState().accessToken;
+
+  return apiFetch<RegisterResponse>("/auth/register", {
+    method: "POST",
+    accessToken: token, // si es público no molesta; si es protegido lo necesita
+    body: JSON.stringify(payload),
   });
 }
 
@@ -45,78 +61,64 @@ export async function getProfile(
 export async function refreshTokens(
   refreshToken: string
 ): Promise<RefreshResponse> {
-  // Swagger: refresh token en Authorization Bearer + body { refreshToken }
   return apiFetch<RefreshResponse>("/auth/refresh", {
     method: "POST",
-    accessToken: refreshToken, // -> Authorization: Bearer <refreshToken>
+    accessToken: refreshToken,
     body: JSON.stringify({ refreshToken }),
   });
 }
 
-export async function logoutRequest(
-  accessToken: string
-): Promise<LogoutResponse> {
-  // Swagger muestra sin body; usualmente protegido por Bearer accessToken
-  return apiFetch<LogoutResponse>("/auth/logout", {
-    method: "POST",
-    accessToken,
-  });
-}
-
-function clearAuthStorage() {
-  try {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth-v1");
-    }
-  } catch {
-    // no-op
-  }
-}
-
 /**
- * Logout robusto:
- * 1) intenta pegarle al backend (/auth/logout) si hay accessToken
- * 2) SIEMPRE limpia store + storage
- */
-export async function performLogout(): Promise<void> {
-  if (typeof window === "undefined") return;
-
-  const { accessToken } = useAuthStore.getState();
-
-  try {
-    if (accessToken) await logoutRequest(accessToken);
-  } catch {
-    // aunque falle (token vencido), igual cerramos sesión en frontend
-  } finally {
-    useAuthStore.getState().logout();
-    clearAuthStorage();
-  }
-}
-
-/**
- * Carga sesión al iniciar la app:
- * 1) si hay accessToken -> /auth/profile
- * 2) si falla y hay refreshToken -> /auth/refresh -> /auth/profile
- * 3) si falla -> logout (limpia store + storage)
- *
- * IMPORTANTE: ejecutar solo en cliente (componentes con "use client").
+ * Bootstrap fluido:
+ * - Si ya hay user en store -> NO bloquea la UI
+ * - Valida tokens en background
+ * - Si falla -> logout
  */
 export async function bootstrapAuth(): Promise<void> {
   if (typeof window === "undefined") return;
 
-  const { accessToken, refreshToken, setLoading, setSession } =
-    useAuthStore.getState();
+  const store = useAuthStore.getState();
+  const { user, accessToken, refreshToken, setLoading, setSession, logout } =
+    store;
 
-  setLoading(true);
+  // ✅ Si ya tengo usuario persistido, NO me quedo pegado en "Cargando..."
+  if (user) {
+    setLoading(false);
 
-  // sin tokens: listo
-  if (!accessToken && !refreshToken) {
-    setSession({ user: null, accessToken: null, refreshToken: null });
-    clearAuthStorage();
+    // Validación en background
+    try {
+      if (accessToken) {
+        const profile = await getProfile(accessToken);
+        setSession({ user: profile.user });
+        return;
+      }
+
+      if (refreshToken) {
+        const renewed = await refreshTokens(refreshToken);
+        const profile = await getProfile(renewed.accessToken);
+
+        setSession({
+          user: profile.user,
+          accessToken: renewed.accessToken,
+          refreshToken: renewed.refreshToken,
+        });
+        return;
+      }
+    } catch {
+      logout();
+    }
+
     return;
   }
 
-  // 1) intentar profile con accessToken
+  // Si NO hay user, ahí sí muestro loading mientras intento recuperar sesión
+  setLoading(true);
+
+  if (!accessToken && !refreshToken) {
+    setSession({ user: null, accessToken: null, refreshToken: null });
+    return;
+  }
+
   if (accessToken) {
     try {
       const profile = await getProfile(accessToken);
@@ -127,10 +129,8 @@ export async function bootstrapAuth(): Promise<void> {
     }
   }
 
-  // 2) refresh si existe refreshToken
   if (!refreshToken) {
-    useAuthStore.getState().logout();
-    clearAuthStorage();
+    logout();
     return;
   }
 
@@ -144,7 +144,6 @@ export async function bootstrapAuth(): Promise<void> {
       refreshToken: renewed.refreshToken,
     });
   } catch {
-    useAuthStore.getState().logout();
-    clearAuthStorage();
+    logout();
   }
 }

@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { PrescriptionsCard } from "./PrescriptionsCard";
 import { Button } from "@/components/ui/Button";
-import { LogoutButton } from "../LogouButton";
+import { LogoutButton } from "../LogoutButton";
 
 type Meta = {
   total: number;
