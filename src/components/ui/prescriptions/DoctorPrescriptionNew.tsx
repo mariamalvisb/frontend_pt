@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PrescriptionItem } from "@/types";
 import { createPrescription } from "@/lib/prescriptions";
+import { listPatients, type Patient } from "@/lib/patients";
 import { Alert } from "@/components/ui/Alert";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +28,12 @@ export default function DoctorPrescriptionNew() {
     { name: "", dosage: "", quantity: "1", instructions: "" },
   ]);
 
+  // ✅ pacientes (para el select)
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(true);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +54,54 @@ export default function DoctorPrescriptionNew() {
     );
   }
 
+  // ✅ cargar pacientes (con search opcional)
+  useEffect(() => {
+    let alive = true;
+
+    async function run() {
+      setPatientsLoading(true);
+      setPatientsError(null);
+
+      try {
+        // pequeño debounce para no pegarle al endpoint en cada tecla
+        await new Promise((r) => setTimeout(r, 250));
+        if (!alive) return;
+
+        const res = await listPatients({
+          page: 1,
+          limit: 50,
+          search: patientSearch.trim() || undefined,
+        });
+
+        if (!alive) return;
+        setPatients(res.data ?? []);
+      } catch (e: any) {
+        if (!alive) return;
+        setPatients([]);
+        setPatientsError(e?.message || "No se pudieron cargar los pacientes.");
+      } finally {
+        if (alive) setPatientsLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [patientSearch]);
+
+  const patientOptions = useMemo(() => {
+    return patients.map((p) => ({
+      id: p.id,
+      label: p.email ? `${p.name} — ${p.email}` : p.name,
+    }));
+  }, [patients]);
+
   async function onSubmit() {
     setError(null);
 
     if (!patientId.trim()) {
-      setError("El patientId es obligatorio.");
+      setError("Debes seleccionar un paciente.");
       return;
     }
 
@@ -88,15 +138,13 @@ export default function DoctorPrescriptionNew() {
         items: cleaned,
       });
 
-      // 👇 Soporta ambas respuestas:
-      // - sin wrapper: { id, ... }
-      // - con TransformInterceptor: { statusCode, ..., data: { id, ... } }
+      // soporta wrapper
       const createdId =
         created?.data?.id ?? created?.id ?? created?.data?.data?.id;
 
       if (!createdId) {
         throw new Error(
-          "La API no devolvió un id de prescripción (revisa si viene envuelto en data)."
+          "La API no devolvió un id de prescripción (revisa wrapper en data)."
         );
       }
 
@@ -116,13 +164,45 @@ export default function DoctorPrescriptionNew() {
       >
         {error ? <Alert>{error}</Alert> : null}
 
+        {/* ✅ Paciente como select + búsqueda */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            label="Patient ID *"
-            value={patientId}
-            onChange={(value) => setPatientId(value)}
-            placeholder="Ej: ck..."
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Paciente *
+            </label>
+
+            <div className="mt-1 grid gap-2">
+              <input
+                className="w-full rounded-md border px-3 py-2"
+                value={patientSearch}
+                onChange={(e) => setPatientSearch(e.target.value)}
+                placeholder="Buscar por nombre o email (opcional)"
+              />
+
+              <select
+                className="w-full rounded-md border px-3 py-2 disabled:opacity-60"
+                value={patientId}
+                onChange={(e) => setPatientId(e.target.value)}
+                disabled={patientsLoading}
+              >
+                <option value="">
+                  {patientsLoading
+                    ? "Cargando pacientes..."
+                    : "Selecciona un paciente"}
+                </option>
+
+                {patientOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+
+              {patientsError ? (
+                <p className="text-sm text-red-600">{patientsError}</p>
+              ) : null}
+            </div>
+          </div>
 
           <Input
             label="Notas (opcional)"
